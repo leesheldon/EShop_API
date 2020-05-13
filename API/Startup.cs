@@ -1,7 +1,9 @@
 using System;
 using System.Collections.Generic;
+using System.IO;
 using System.Linq;
 using System.Threading.Tasks;
+using API.Extensions;
 using API.Helpers;
 using API.Middleware;
 using AutoMapper;
@@ -14,6 +16,7 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.FileProviders;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 
@@ -40,6 +43,14 @@ namespace API
             services.AddDbContext<StoreContext>(i => 
                 i.UseSqlite(_configuration.GetConnectionString("DefaultConnection")));
             
+            services.AddApplicationServices();
+            
+            services.AddCors(opt => {
+                opt.AddPolicy("CorsPolicy", policy => 
+                {
+                    policy.AllowAnyHeader().AllowAnyMethod().WithOrigins("https://localhost:4200");
+                });
+            });
             
         }
 
@@ -55,7 +66,16 @@ namespace API
             app.UseHttpsRedirection();
 
             app.UseRouting();
-
+            app.UseStaticFiles();
+            app.UseStaticFiles(new StaticFileOptions
+            {
+                FileProvider = new PhysicalFileProvider(
+                    Path.Combine(Directory.GetCurrentDirectory(), "Content")
+                ), RequestPath = "/content"
+            });
+            
+            app.UseCors("CorsPolicy");
+            
             app.UseAuthorization();
 
             app.UseEndpoints(endpoints =>

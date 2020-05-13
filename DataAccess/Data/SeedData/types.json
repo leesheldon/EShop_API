@@ -1,0 +1,30 @@
+[
+    {
+      "Id": 1,
+      "Name": "Laptop"
+    },
+    {
+      "Id": 2,
+      "Name": "Printer"
+    },
+    {
+      "Id": 3,
+      "Name": "Mobile Phone"
+    },
+    {
+      "Id": 4,
+      "Name": "Air-Conditioner"
+    },
+    {
+      "Id": 5,
+      "Name": "Television"
+    },
+    {
+      "Id": 6,
+      "Name": "Refrigerator"
+    },
+    {
+      "Id": 7,
+      "Name": "Camera"
+    }
+  ]

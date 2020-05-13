@@ -1,0 +1,114 @@
+[
+    {
+        "Name": "Sony Vaio - VGN CR309ERC",
+        "Description": "Lorem ipsum dolor sit amet, consectetuer adipiscing elit. Maecenas porttitor congue massa. Fusce posuere, magna sed pulvinar ultricies, purus lectus malesuada libero, sit amet commodo magna eros quis urna.",
+        "Price": 2000,
+        "PictureUrl": "images/products/prod_001.jpg",
+        "ProductTypeId": 1,
+        "ProductBrandId": 7
+      },
+      {
+        "Name": "Iphone",
+        "Description": "Nunc viverra imperdiet enim. Fusce est. Vivamus a tellus.",
+        "Price": 650,
+        "PictureUrl": "images/products/prod_002.jpg",
+        "ProductTypeId": 3,
+        "ProductBrandId": 2
+      },
+      {
+        "Name": "Nokia-7610",
+        "Description": "Nunc viverra imperdiet enim. Fusce est. Vivamus a tellus.",
+        "Price": 350,
+        "PictureUrl": "images/products/prod_003.jpg",
+        "ProductTypeId": 3,
+        "ProductBrandId": 11
+      },
+      {
+        "Name": "ASUS W7S-1A3P 1B3P",
+        "Description": "Nunc viverra imperdiet enim. Fusce est. Vivamus a tellus.",
+        "Price": 900,
+        "PictureUrl": "images/products/prod_004.jpg",
+        "ProductTypeId": 1,
+        "ProductBrandId": 5
+      },
+      {
+        "Name": "ASUS LAMBORGHINI VX2S",
+        "Description": "Nunc viverra imperdiet enim. Fusce est. Vivamus a tellus.",
+        "Price": 1500,
+        "PictureUrl": "images/products/prod_005.jpg",
+        "ProductTypeId": 1,
+        "ProductBrandId": 5
+      },
+      {
+        "Name": "EPSON Stylus CX6900F",
+        "Description": "Nunc viverra imperdiet enim. Fusce est. Vivamus a tellus.",
+        "Price": 950,
+        "PictureUrl": "images/products/prod_006.jpg",
+        "ProductTypeId": 2,
+        "ProductBrandId": 9
+      },
+      {
+        "Name": "Ricoh Aficio SP1000SF",
+        "Description": "Nunc viverra imperdiet enim. Fusce est. Vivamus a tellus.",
+        "Price": 400,
+        "PictureUrl": "images/products/prod_007.jpg",
+        "ProductTypeId": 2,
+        "ProductBrandId": 4
+      },
+      {
+        "Name": "Samsung Galaxy S6",
+        "Description": "Nunc viverra imperdiet enim. Fusce est. Vivamus a tellus.",
+        "Price": 700,
+        "PictureUrl": "images/products/prod_008.jpg",
+        "ProductTypeId": 3,
+        "ProductBrandId": 1
+      },
+      {
+        "Name": "Sony DSLR-A200",
+        "Description": "Nunc viverra imperdiet enim. Fusce est. Vivamus a tellus.",
+        "Price": 1000,
+        "PictureUrl": "images/products/prod_009.jpg",
+        "ProductTypeId": 7,
+        "ProductBrandId": 7
+      },
+      {
+        "Name": "Canon IXUS 900Ti",
+        "Description": "Nunc viverra imperdiet enim. Fusce est. Vivamus a tellus.",
+        "Price": 500,
+        "PictureUrl": "images/products/prod_010.jpg",
+        "ProductTypeId": 7,
+        "ProductBrandId": 13
+      },
+      {
+        "Name": "TV plasma Samsung 42'' - 42C91 1155&863 ",
+        "Description": "Nunc viverra imperdiet enim. Fusce est. Vivamus a tellus.",
+        "Price": 1100,
+        "PictureUrl": "images/products/prod_011.jpg",
+        "ProductTypeId": 5,
+        "ProductBrandId": 1
+      },
+      {
+        "Name": "TV sieu phang LG 29''-29fu5rg ",
+        "Description": "Nunc viverra imperdiet enim. Fusce est. Vivamus a tellus.",
+        "Price": 700,
+        "PictureUrl": "images/products/prod_012.jpg",
+        "ProductTypeId": 5,
+        "ProductBrandId": 14
+      },
+      {
+        "Name": "Refrigerator LG",
+        "Description": "Nunc viverra imperdiet enim. Fusce est. Vivamus a tellus.",
+        "Price": 1600,
+        "PictureUrl": "images/products/prod_013.jpg",
+        "ProductTypeId": 6,
+        "ProductBrandId": 14
+      },
+      {
+        "Name": "Refrigerator Samsung",
+        "Description": "Nunc viverra imperdiet enim. Fusce est. Vivamus a tellus.",
+        "Price": 1800,
+        "PictureUrl": "images/products/prod_014.jpg",
+        "ProductTypeId": 6,
+        "ProductBrandId": 1
+      }
+]

@@ -1,0 +1,58 @@
+[
+    {
+      "Id": 1,
+      "Name": "SAMSUNG"
+    },
+    {
+      "Id": 2,
+      "Name": "APPLE"
+    },
+    {
+      "Id": 3,
+      "Name": "PANASONIC"
+    },
+    {
+      "Id": 4,
+      "Name": "RICOH"
+    },
+    {
+      "Id": 5,
+      "Name": "ASUS"
+    },
+    {
+      "Id": 6,
+      "Name": "IBM"
+    },
+    {
+      "Id": 7,
+      "Name": "SONY"
+    },
+    {
+      "Id": 8,
+      "Name": "TOSHIBA"
+    },
+    {
+      "Id": 9,
+      "Name": "EPSON"
+    },
+    {
+      "Id": 10,
+      "Name": "PHILIPS"
+    },
+    {
+      "Id": 11,
+      "Name": "NOKIA"
+    },
+    {
+      "Id": 12,
+      "Name": "MOTOROLA"
+    },
+    {
+      "Id": 13,
+      "Name": "CANON"
+    },
+    {
+      "Id": 14,
+      "Name": "LG"
+    }    
+  ]
