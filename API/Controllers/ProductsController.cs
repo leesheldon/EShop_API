@@ -8,8 +8,11 @@ using AutoMapper;
 using Core.Entities;
 using Core.Interfaces;
 using Core.Specifications;
+using DataAccess.Data;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.EntityFrameworkCore;
 
 namespace API.Controllers
 {
@@ -21,11 +24,12 @@ namespace API.Controllers
 
         public ProductsController(IMapper mapper, IUnitOfWork unitOfWork, IPhotoService photoService)
         {
-            _unitOfWork = unitOfWork;
             _mapper = mapper;
+            _unitOfWork = unitOfWork;
             _photoService = photoService;
         }
 
+        // [Cached(600)]
         [HttpGet]
         public async Task<ActionResult<Pagination<ProductToReturnDto>>> GetProducts(
             [FromQuery]ProductSpecParams productParams)
@@ -44,6 +48,7 @@ namespace API.Controllers
             return Ok(new Pagination<ProductToReturnDto>(productParams.PageIndex, productParams.PageSize, totalItems, data));
         }
 
+        // [Cached(600)]
         [HttpGet("{id}")]
         [ProducesResponseType(StatusCodes.Status200OK)]
         [ProducesResponseType(typeof(ApiResponse), StatusCodes.Status404NotFound)]
@@ -64,14 +69,15 @@ namespace API.Controllers
             return Ok(await _unitOfWork.Repository<ProductBrand>().ListAllAsync());
         }
 
+        // [Cached(1000)]
         [HttpGet("types")]
         public async Task<ActionResult<IReadOnlyList<ProductType>>> GetProductTypes()
         {
             return Ok(await _unitOfWork.Repository<ProductType>().ListAllAsync());
         }
-
+        
         [HttpPost]
-        //[Authorize(Roles = "Admin")]
+        [Authorize(Roles = "Admin")]
         public async Task<ActionResult<ProductToReturnDto>> CreateProduct(ProductCreateDto productToCreate)
         {
             var product = _mapper.Map<ProductCreateDto, Product>(productToCreate);
@@ -84,9 +90,9 @@ namespace API.Controllers
 
             return _mapper.Map<Product, ProductToReturnDto>(product);
         }
-
+        
         [HttpPut("{id}")]
-        //[Authorize(Roles = "Admin")]
+        [Authorize(Roles = "Admin")]
         public async Task<ActionResult<ProductToReturnDto>> UpdateProduct(int id, ProductCreateDto productToUpdate)
         {
             var product = await _unitOfWork.Repository<Product>().GetByIdAsync(id);
@@ -103,10 +109,19 @@ namespace API.Controllers
         }
         
         [HttpDelete("{id}")]
-        //[Authorize(Roles = "Admin")]
+        [Authorize(Roles = "Admin")]
         public async Task<ActionResult> DeleteProduct(int id)
         {
-            var product = await _unitOfWork.Repository<Product>().GetByIdAsync(id);
+            var spec = new Products_w_Types_Brands_Spec(id);
+            var product = await _unitOfWork.Repository<Product>().GetEntityWithSpec(spec);
+
+            foreach (var photo in product.Photos)
+            {
+                if (photo.Id > 18)
+                {
+                    _photoService.DeleteFromDisk(photo);
+                }
+            }
             
             _unitOfWork.Repository<Product>().Delete(product);
 
@@ -116,9 +131,9 @@ namespace API.Controllers
 
             return Ok();
         }
-
+        
         [HttpPut("{id}/photo")]
-        //[Authorize(Roles = "Admin")]
+        [Authorize(Roles = "Admin")]
         public async Task<ActionResult<ProductToReturnDto>> AddProductPhoto(int id, [FromForm]ProductPhotoDto photoDto)
         {
             var spec = new Products_w_Types_Brands_Spec(id);
@@ -148,7 +163,7 @@ namespace API.Controllers
         }
         
         [HttpDelete("{id}/photo/{photoId}")]
-        //[Authorize(Roles = "Admin")]
+        [Authorize(Roles = "Admin")]
         public async Task<ActionResult> DeleteProductPhoto(int id, int photoId)
         {
             var spec = new Products_w_Types_Brands_Spec(id);
@@ -181,9 +196,9 @@ namespace API.Controllers
         }
         
         [HttpPost("{id}/photo/{photoId}")]
-        //[Authorize(Roles = "Admin")]
+        [Authorize(Roles = "Admin")]
         public async Task<ActionResult<ProductToReturnDto>> SetMainPhoto(int id, int photoId)
-        {
+        {            
             var spec = new Products_w_Types_Brands_Spec(id);
             var product = await _unitOfWork.Repository<Product>().GetEntityWithSpec(spec);
 
@@ -199,6 +214,6 @@ namespace API.Controllers
 
             return _mapper.Map<Product, ProductToReturnDto>(product);
         }
-
+        
     }
 }
