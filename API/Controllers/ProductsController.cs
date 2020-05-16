@@ -1,4 +1,6 @@
+using System;
 using System.Collections.Generic;
+using System.Drawing.Imaging;
 using System.Linq;
 using System.Threading.Tasks;
 using API.Dtos;
@@ -87,6 +89,31 @@ namespace API.Controllers
             var result = await _unitOfWork.Complete();
 
             if (result <= 0) return BadRequest(new ApiResponse(400, "Problem creating product"));
+
+            // Upload placeholder.png file as temporary image for new Product
+            string filePath = "Content/images/products/";            
+            if (System.IO.File.Exists(filePath + "placeholder.png"))
+            {
+                using (System.IO.Stream imageStream = System.IO.File.OpenRead(filePath + "placeholder.png"))
+                {
+                    // Physical location
+                    System.Drawing.Image img = System.Drawing.Image.FromStream(imageStream);
+
+                    var fileName = Guid.NewGuid() + ".png";
+                    img.Save(filePath + "//" + fileName, ImageFormat.Png);
+
+                    // For Photo table
+                    var photo = new Photo();
+                    photo.FileName = fileName;
+                    photo.PictureUrl = filePath + "//" + fileName;
+                    
+                    product.AddPhoto(photo.PictureUrl, photo.FileName);
+
+                    _unitOfWork.Repository<Product>().Update(product);
+                
+                    result = await _unitOfWork.Complete();
+                }
+            }
 
             return _mapper.Map<Product, ProductToReturnDto>(product);
         }
