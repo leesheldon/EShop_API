@@ -91,21 +91,22 @@ namespace API.Controllers
             if (result <= 0) return BadRequest(new ApiResponse(400, "Problem creating product"));
 
             // Upload placeholder.png file as temporary image for new Product
-            string filePath = "Content/images/products/";            
-            if (System.IO.File.Exists(filePath + "placeholder.png"))
+            string filePhysicalPath = "Content/images/products/";
+            string filePath = "images/products/";
+            if (System.IO.File.Exists(filePhysicalPath + "placeholder.png"))
             {
-                using (System.IO.Stream imageStream = System.IO.File.OpenRead(filePath + "placeholder.png"))
+                using (System.IO.Stream imageStream = System.IO.File.OpenRead(filePhysicalPath + "placeholder.png"))
                 {
                     // Physical location
                     System.Drawing.Image img = System.Drawing.Image.FromStream(imageStream);
 
                     var fileName = Guid.NewGuid() + ".png";
-                    img.Save(filePath + "//" + fileName, ImageFormat.Png);
+                    img.Save(filePhysicalPath + fileName, ImageFormat.Png);
 
                     // For Photo table
                     var photo = new Photo();
                     photo.FileName = fileName;
-                    photo.PictureUrl = filePath + "//" + fileName;
+                    photo.PictureUrl = filePath + fileName;
                     
                     product.AddPhoto(photo.PictureUrl, photo.FileName);
 
