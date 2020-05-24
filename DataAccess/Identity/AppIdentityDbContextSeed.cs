@@ -40,7 +40,9 @@ namespace DataAccess.Identity
                 var roles = new List<AppRole>
                 {
                     new AppRole {Name = "Admin"},
-                    new AppRole {Name = "Member"}
+                    new AppRole {Name = "Member"},
+                    new AppRole {Name = "Staff"},
+                    new AppRole {Name = "Manager"}
                 };
 
                 foreach (var role in roles)

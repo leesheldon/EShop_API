@@ -1,3 +1,6 @@
+using System;
+using System.Collections.Generic;
+using System.Linq;
 using System.Threading.Tasks;
 using API.Dtos;
 using API.Errors;
@@ -5,9 +8,12 @@ using API.Extensions;
 using AutoMapper;
 using Core.Entities.Identity;
 using Core.Interfaces;
+using DataAccess.Identity;
 using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.EntityFrameworkCore;
 
 namespace API.Controllers
 {
@@ -17,12 +23,16 @@ namespace API.Controllers
         private readonly SignInManager<AppUser> _signInManager;
         private readonly ITokenService _tokenService;
         private readonly IMapper _mapper;
-        public AccountController(UserManager<AppUser> userManager, SignInManager<AppUser> signInManager, ITokenService tokenService, IMapper mapper)
+        private readonly AppIdentityDbContext _context;
+
+        public AccountController(UserManager<AppUser> userManager, SignInManager<AppUser> signInManager, 
+                    ITokenService tokenService, IMapper mapper, AppIdentityDbContext context)
         {
             _mapper = mapper;
             _tokenService = tokenService;
             _signInManager = signInManager;
             _userManager = userManager;
+            _context = context;
         }
 
         [Authorize]
@@ -117,6 +127,206 @@ namespace API.Controllers
                 Token = await _tokenService.CreateToken(user),
                 Email = user.Email
             };
+        }
+
+        private async Task<bool> CheckUserIsLockedOut(AppUser appUser)
+        {
+            var isLockedOut = await _userManager.IsLockedOutAsync(appUser);
+
+            return isLockedOut;
+        }
+
+        private async Task<string> GetRolesNameListBySelectedUser(AppUser appUser)
+        {
+            var rolesNameList = await _userManager.GetRolesAsync(appUser);
+            var strRolesList = "";
+
+            foreach (var roleItem in rolesNameList)
+            {
+                strRolesList = strRolesList + roleItem + ", ";
+            }
+
+            if (!string.IsNullOrEmpty(strRolesList))
+            {
+                strRolesList = strRolesList.Substring(0, strRolesList.Length - 2);
+            }
+
+            return strRolesList;
+        }
+
+        private async Task<List<RolesListOfSelectedUser>> GetRolesListBySelectedUser(string userId)
+        {
+            // Get selected roles list checked by selected user
+            var selectedRolesIds = await _context.UserRoles.Where(p => p.UserId == userId).Select(p => p.RoleId).ToListAsync();
+
+            // Get Roles list from Database
+            var rolesFromDB = await _context.Roles.Distinct().ToListAsync();
+
+            // Return selected Roles within Roles list from Database
+            List<RolesListOfSelectedUser> appRoles = new List<RolesListOfSelectedUser>();
+            foreach (var itemRole in rolesFromDB)
+            {
+                RolesListOfSelectedUser newRole = new RolesListOfSelectedUser();
+                newRole.Id = itemRole.Id;
+                newRole.Name = itemRole.Name;
+                newRole.SelectedRole = false;
+
+                if (selectedRolesIds.Exists(str => str.Equals(itemRole.Id)))
+                {
+                    newRole.SelectedRole = true;
+                }
+
+                appRoles.Add(newRole);
+            }
+
+            return appRoles;
+        }
+
+        [HttpGet("userslist")]
+        [Authorize(Roles = "Admin")]
+        public async Task<ActionResult<UsersWithRolesToReturnDto>> GetUsersList()
+        {
+            var usersList = await _context.Users.OrderBy(p => p.UserName).ToListAsync();
+
+            foreach (var perUser in usersList)
+            {
+                perUser.IsLockedOut = await CheckUserIsLockedOut(perUser);
+                perUser.RolesNames = await GetRolesNameListBySelectedUser(perUser);
+            }
+
+            var data = _mapper
+                .Map<IReadOnlyList<AppUser>, IReadOnlyList<UsersWithRolesToReturnDto>>(usersList);
+
+            return Ok(usersList);
+        }
+
+        [HttpGet("user/{id}")]
+        [Authorize(Roles = "Admin")]
+        public async Task<ActionResult<UsersWithRolesToReturnDto>> GetUser(string id)
+        {
+            if (string.IsNullOrEmpty(id))
+            {
+                return NotFound(new ApiResponse(404));
+            }
+
+            var userFromDb = await _context.Users.SingleOrDefaultAsync(p => p.Id == id);
+            if (userFromDb == null)
+            {
+                return NotFound(new ApiResponse(404));
+            }
+
+            userFromDb.IsLockedOut = await CheckUserIsLockedOut(userFromDb);
+            userFromDb.RolesNames = await GetRolesNameListBySelectedUser(userFromDb);
+
+            var userToUpdate = _mapper.Map<AppUser, UserToUpdate>(userFromDb);
+
+            userToUpdate.RolesList = await GetRolesListBySelectedUser(id);
+
+            return Ok(userToUpdate);
+        }
+
+        [HttpPut("{id}/update")]
+        [Authorize(Roles = "Admin")]
+        public async Task<ActionResult<ProductToReturnDto>> UpdateUser(string id, UserToUpdate userToUpdate)
+        {
+            if (string.IsNullOrEmpty(id))
+            {
+                return NotFound(new ApiResponse(404));
+            }
+
+            var userFromDb = await _context.Users.SingleOrDefaultAsync(p => p.Id == id);
+            if (userFromDb == null)
+            {
+                return NotFound(new ApiResponse(404));
+            }
+
+            userFromDb.DisplayName = userToUpdate.DisplayName;
+            userFromDb.PhoneNumber = userToUpdate.PhoneNumber;
+
+            // Update roles list
+            List<RolesListOfSelectedUser> appRoles = userToUpdate.RolesList;
+            List<string> new_Roles = new List<string>();
+
+            foreach (var itemRole in appRoles)
+            {
+                if (itemRole.SelectedRole)
+                {
+                    new_Roles.Add(itemRole.Name);
+                }
+            }
+
+            if (new_Roles.Count < 1)
+            {
+                return BadRequest(new ApiResponse(400, "Please select at least one role."));
+            }
+
+            var old_Roles = await _userManager.GetRolesAsync(userFromDb);
+
+            var result = await _userManager.RemoveFromRolesAsync(userFromDb, old_Roles);
+            if (!result.Succeeded)
+                return BadRequest(new ApiResponse(400, "Failed to remove old roles."));
+
+            result = await _userManager.AddToRolesAsync(userFromDb, new_Roles);
+            if (!result.Succeeded)
+                return BadRequest(new ApiResponse(400, "Failed to add new roles."));
+
+            await _context.SaveChangesAsync();
+
+            return Ok();
+        }
+
+
+        [HttpPost("{id}/lock")]
+        [Authorize(Roles = "Admin")]
+        [ProducesResponseType(StatusCodes.Status200OK)]
+        [ProducesResponseType(typeof(ApiResponse), StatusCodes.Status404NotFound)]
+        public async Task<ActionResult<ProductToReturnDto>> LockUser(string id, UserToLockOrUnlockDto appUser)
+        {
+            if (string.IsNullOrEmpty(id))
+            {
+                return NotFound(new ApiResponse(404));
+            }
+
+            var userFromDb = await _context.Users.SingleOrDefaultAsync(p => p.Id == id);
+            if (userFromDb == null)
+            {
+                return NotFound(new ApiResponse(404));
+            }
+
+            userFromDb.LockoutEnd = DateTime.Now.AddYears(100);
+            userFromDb.LockoutEnabled = true;
+            userFromDb.LockoutReason = appUser.LockoutReason;
+            userFromDb.AccessFailedCount = appUser.AccessFailedCount;
+            userFromDb.IsLockedOut = true;
+
+            await _context.SaveChangesAsync();
+            return Ok();
+        }
+
+        [HttpPost("{id}/unlock")]
+        [Authorize(Roles = "Admin")]
+        [ProducesResponseType(StatusCodes.Status200OK)]
+        [ProducesResponseType(typeof(ApiResponse), StatusCodes.Status404NotFound)]
+        public async Task<ActionResult<ProductToReturnDto>> UnLockUser(string id, UserToLockOrUnlockDto appUser)
+        {
+            if (string.IsNullOrEmpty(id))
+            {
+                return NotFound(new ApiResponse(404));
+            }
+
+            var userFromDb = await _context.Users.SingleOrDefaultAsync(p => p.Id == id);
+            if (userFromDb == null)
+            {
+                return NotFound(new ApiResponse(404));
+            }
+
+            userFromDb.LockoutEnd = null;
+            userFromDb.UnLockReason = appUser.UnLockReason;
+            userFromDb.AccessFailedCount = appUser.AccessFailedCount;
+            userFromDb.IsLockedOut = false;
+
+            await _context.SaveChangesAsync();
+            return Ok();
         }
 
     }

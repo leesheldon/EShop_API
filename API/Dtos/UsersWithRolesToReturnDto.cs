@@ -1,13 +1,14 @@
 using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
-using Microsoft.AspNetCore.Identity;
 
-namespace Core.Entities.Identity
+namespace API.Dtos
 {
-    public class AppUser : IdentityUser
+    public class UsersWithRolesToReturnDto
     {
+        public string Id { get; set; }
+        public string UserName { get; set; }
+        public string Email { get; set; }
         public string DisplayName { get; set; }
-        public Address Address { get; set; }
 
         [Display(Name = "Lockout Reason")]
         public string LockoutReason { get; set; }
@@ -20,6 +21,6 @@ namespace Core.Entities.Identity
 
         [NotMapped]
         public string RolesNames { get; set; }
-           
+        
     }
 }
