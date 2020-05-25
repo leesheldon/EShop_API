@@ -5,9 +5,11 @@ using System.Threading.Tasks;
 using API.Dtos;
 using API.Errors;
 using API.Extensions;
+using API.Helpers;
 using AutoMapper;
 using Core.Entities.Identity;
 using Core.Interfaces;
+using Core.Specifications;
 using DataAccess.Identity;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Http;
@@ -182,11 +184,38 @@ namespace API.Controllers
             return appRoles;
         }
 
+        public Task<int> Complete()
+        {
+            return _context.SaveChangesAsync();
+        }
+
         [HttpGet("userslist")]
         [Authorize(Roles = "Admin")]
-        public async Task<ActionResult<UsersWithRolesToReturnDto>> GetUsersList()
+        public async Task<ActionResult<UsersWithRolesToReturnDto>> GetUsersList([FromQuery]UserSpecParams userParams)
         {
-            var usersList = await _context.Users.OrderBy(p => p.UserName).ToListAsync();
+            int skip = userParams.PageSize * (userParams.PageIndex - 1);
+            int take = userParams.PageSize;
+            var query = _context.Users.Where(p => 1 == 1);
+            
+            if (!string.IsNullOrEmpty(userParams.Sort))
+            {
+                switch (userParams.Sort)
+                {
+                    case "usernameAsc":
+                        query = query.OrderBy(p => p.UserName);
+                        break;
+                    case "usernameDesc":
+                        query = query.OrderByDescending(p => p.UserName);
+                        break;
+                    default:
+                        query = query.OrderBy(p => p.DisplayName);
+                        break;
+                }
+            }
+
+            query = query.Skip(skip).Take(take);
+
+            var usersList = await query.ToListAsync();
 
             foreach (var perUser in usersList)
             {
@@ -194,12 +223,14 @@ namespace API.Controllers
                 perUser.RolesNames = await GetRolesNameListBySelectedUser(perUser);
             }
 
+            var totalItems = await _context.Users.CountAsync();
+
             var data = _mapper
                 .Map<IReadOnlyList<AppUser>, IReadOnlyList<UsersWithRolesToReturnDto>>(usersList);
 
-            return Ok(usersList);
+            return Ok(new Pagination<UsersWithRolesToReturnDto>(userParams.PageIndex, userParams.PageSize, totalItems, data));
         }
-
+        
         [HttpGet("user/{id}")]
         [Authorize(Roles = "Admin")]
         public async Task<ActionResult<UsersWithRolesToReturnDto>> GetUser(string id)
@@ -227,7 +258,7 @@ namespace API.Controllers
 
         [HttpPut("{id}/update")]
         [Authorize(Roles = "Admin")]
-        public async Task<ActionResult<ProductToReturnDto>> UpdateUser(string id, UserToUpdate userToUpdate)
+        public async Task<ActionResult<UsersWithRolesToReturnDto>> UpdateUser(string id, UserToUpdate userToUpdate)
         {
             if (string.IsNullOrEmpty(id))
             {
@@ -239,40 +270,50 @@ namespace API.Controllers
             {
                 return NotFound(new ApiResponse(404));
             }
-
-            userFromDb.DisplayName = userToUpdate.DisplayName;
-            userFromDb.PhoneNumber = userToUpdate.PhoneNumber;
-
-            // Update roles list
-            List<RolesListOfSelectedUser> appRoles = userToUpdate.RolesList;
-            List<string> new_Roles = new List<string>();
-
-            foreach (var itemRole in appRoles)
+                        
+            try
             {
-                if (itemRole.SelectedRole)
+                userFromDb.DisplayName = userToUpdate.DisplayName;
+                userFromDb.PhoneNumber = userToUpdate.PhoneNumber;
+
+                // Update roles list
+                List<RolesListOfSelectedUser> appRoles = userToUpdate.RolesList;
+                List<string> new_Roles = new List<string>();
+
+                foreach (var itemRole in appRoles)
                 {
-                    new_Roles.Add(itemRole.Name);
+                    if (itemRole.SelectedRole)
+                    {
+                        new_Roles.Add(itemRole.Name);
+                    }
                 }
-            }
 
-            if (new_Roles.Count < 1)
+                if (new_Roles.Count < 1)
+                {
+                    return BadRequest(new ApiResponse(400, "Please select at least one role."));
+                }
+
+                var old_Roles = await _userManager.GetRolesAsync(userFromDb);
+
+                var result = await _userManager.RemoveFromRolesAsync(userFromDb, old_Roles);
+                if (!result.Succeeded)
+                    return BadRequest(new ApiResponse(400, "Failed to remove old roles."));
+
+                result = await _userManager.AddToRolesAsync(userFromDb, new_Roles);
+                if (!result.Succeeded)
+                    return BadRequest(new ApiResponse(400, "Failed to add new roles."));
+
+                _context.Entry(userFromDb).State = EntityState.Modified;
+
+                var completed = await Complete();                
+                if (completed <= 0) return BadRequest(new ApiResponse(400, "Problem in Update user!"));
+                
+                return Ok();
+            }
+            catch (Exception ex)
             {
-                return BadRequest(new ApiResponse(400, "Please select at least one role."));
+                return BadRequest(new ApiResponse(400, "Problem in Update user! " + ex.Message));
             }
-
-            var old_Roles = await _userManager.GetRolesAsync(userFromDb);
-
-            var result = await _userManager.RemoveFromRolesAsync(userFromDb, old_Roles);
-            if (!result.Succeeded)
-                return BadRequest(new ApiResponse(400, "Failed to remove old roles."));
-
-            result = await _userManager.AddToRolesAsync(userFromDb, new_Roles);
-            if (!result.Succeeded)
-                return BadRequest(new ApiResponse(400, "Failed to add new roles."));
-
-            await _context.SaveChangesAsync();
-
-            return Ok();
         }
 
 
@@ -280,7 +321,7 @@ namespace API.Controllers
         [Authorize(Roles = "Admin")]
         [ProducesResponseType(StatusCodes.Status200OK)]
         [ProducesResponseType(typeof(ApiResponse), StatusCodes.Status404NotFound)]
-        public async Task<ActionResult<ProductToReturnDto>> LockUser(string id, UserToLockOrUnlockDto appUser)
+        public async Task<ActionResult> LockUser(string id, UserToLockOrUnlockDto appUser)
         {
             if (string.IsNullOrEmpty(id))
             {
@@ -299,7 +340,11 @@ namespace API.Controllers
             userFromDb.AccessFailedCount = appUser.AccessFailedCount;
             userFromDb.IsLockedOut = true;
 
-            await _context.SaveChangesAsync();
+            _context.Entry(userFromDb).State = EntityState.Modified;
+
+            var result = await Complete();
+            if (result <= 0) return BadRequest(new ApiResponse(400, "Problem in Lock user!"));
+
             return Ok();
         }
 
@@ -307,7 +352,7 @@ namespace API.Controllers
         [Authorize(Roles = "Admin")]
         [ProducesResponseType(StatusCodes.Status200OK)]
         [ProducesResponseType(typeof(ApiResponse), StatusCodes.Status404NotFound)]
-        public async Task<ActionResult<ProductToReturnDto>> UnLockUser(string id, UserToLockOrUnlockDto appUser)
+        public async Task<ActionResult> UnLockUser(string id, UserToLockOrUnlockDto appUser)
         {
             if (string.IsNullOrEmpty(id))
             {
@@ -325,7 +370,11 @@ namespace API.Controllers
             userFromDb.AccessFailedCount = appUser.AccessFailedCount;
             userFromDb.IsLockedOut = false;
 
-            await _context.SaveChangesAsync();
+            _context.Entry(userFromDb).State = EntityState.Modified;
+
+            var result = await Complete();
+            if (result <= 0) return BadRequest(new ApiResponse(400, "Problem in UnLock user!"));
+
             return Ok();
         }
 
