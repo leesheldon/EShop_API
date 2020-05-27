@@ -256,7 +256,7 @@ namespace API.Controllers
             userFromDb.IsLockedOut = await CheckUserIsLockedOut(userFromDb);
             userFromDb.RolesNames = await GetRolesNameListBySelectedUser(userFromDb);
 
-            var userToUpdate = _mapper.Map<AppUser, UserToUpdateDto>(userFromDb);
+            var userToUpdate = _mapper.Map<AppUser, UsersWithRolesToReturnDto>(userFromDb);
 
             userToUpdate.RolesList = await GetRolesListBySelectedUser(id);
 
@@ -296,7 +296,7 @@ namespace API.Controllers
                         userFromDb.LockoutEnd = userToUpdate.LockoutEnd;
                     }
                 }                
-
+                
                 // Update roles list
                 List<RolesListOfSelectedUser> appRoles = userToUpdate.RolesList;
                 List<string> new_Roles = new List<string>();
@@ -355,11 +355,14 @@ namespace API.Controllers
                 return NotFound(new ApiResponse(404));
             }
 
-            userFromDb.LockoutEnd = DateTime.Now.AddYears(100);
+            //userFromDb.LockoutEnd = DateTime.Now.AddYears(100);
+            userFromDb.LockoutEnd = appUser.LockoutEnd;
             userFromDb.LockoutEnabled = true;
             userFromDb.LockoutReason = appUser.LockoutReason;
             userFromDb.AccessFailedCount = appUser.AccessFailedCount;
             userFromDb.IsLockedOut = true;
+
+            userFromDb.UnLockReason = "";
 
             _context.Entry(userFromDb).State = EntityState.Modified;
 
@@ -390,6 +393,8 @@ namespace API.Controllers
             userFromDb.UnLockReason = appUser.UnLockReason;
             userFromDb.AccessFailedCount = appUser.AccessFailedCount;
             userFromDb.IsLockedOut = false;
+
+            userFromDb.LockoutReason = "";
 
             _context.Entry(userFromDb).State = EntityState.Modified;
 
