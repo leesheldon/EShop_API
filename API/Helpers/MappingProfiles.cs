@@ -22,7 +22,7 @@ namespace API.Helpers
                     o => o.MapFrom<PhotoUrlResolver>());
 
             CreateMap<AppUser, UsersWithRolesToReturnDto>();
-            CreateMap<AppUser, UserToUpdate>();
+            CreateMap<AppUser, UserToUpdateDto>();
             
         }
 

@@ -3,13 +3,8 @@ using System.ComponentModel.DataAnnotations.Schema;
 
 namespace API.Dtos
 {
-    public class UsersWithRolesToReturnDto
+    public class UsersWithRolesToReturnDto : UserToUpdateDto
     {
-        public string Id { get; set; }
-        public string UserName { get; set; }
-        public string Email { get; set; }
-        public string DisplayName { get; set; }
-
         [Display(Name = "Lockout Reason")]
         public string LockoutReason { get; set; }
 

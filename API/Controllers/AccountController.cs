@@ -195,8 +195,15 @@ namespace API.Controllers
         {
             int skip = userParams.PageSize * (userParams.PageIndex - 1);
             int take = userParams.PageSize;
-            var query = _context.Users.Where(p => 1 == 1);
+            var query = _context.Users.AsQueryable();
             
+            if (!string.IsNullOrEmpty(userParams.Search))
+            {
+                query = query.Where(p => 
+                            p.UserName.ToLower().Contains(userParams.Search) || 
+                            p.DisplayName.ToLower().Contains(userParams.Search));
+            }
+
             if (!string.IsNullOrEmpty(userParams.Sort))
             {
                 switch (userParams.Sort)
@@ -249,7 +256,7 @@ namespace API.Controllers
             userFromDb.IsLockedOut = await CheckUserIsLockedOut(userFromDb);
             userFromDb.RolesNames = await GetRolesNameListBySelectedUser(userFromDb);
 
-            var userToUpdate = _mapper.Map<AppUser, UserToUpdate>(userFromDb);
+            var userToUpdate = _mapper.Map<AppUser, UserToUpdateDto>(userFromDb);
 
             userToUpdate.RolesList = await GetRolesListBySelectedUser(id);
 
@@ -258,7 +265,7 @@ namespace API.Controllers
 
         [HttpPut("{id}/update")]
         [Authorize(Roles = "Admin")]
-        public async Task<ActionResult<UsersWithRolesToReturnDto>> UpdateUser(string id, UserToUpdate userToUpdate)
+        public async Task<ActionResult<UsersWithRolesToReturnDto>> UpdateUser(string id, UserToUpdateDto userToUpdate)
         {
             if (string.IsNullOrEmpty(id))
             {
@@ -273,8 +280,22 @@ namespace API.Controllers
                         
             try
             {
+                userFromDb.UserName = userToUpdate.UserName;
+                userFromDb.NormalizedUserName = userToUpdate.UserName.ToUpper();
+                userFromDb.Email = userToUpdate.Email;
+                userFromDb.NormalizedEmail = userToUpdate.Email.ToUpper();
+
                 userFromDb.DisplayName = userToUpdate.DisplayName;
                 userFromDb.PhoneNumber = userToUpdate.PhoneNumber;
+
+                bool isLockedOut = await CheckUserIsLockedOut(userFromDb);
+                if (isLockedOut)
+                {
+                    if (userToUpdate.LockoutEnd != null)
+                    {
+                        userFromDb.LockoutEnd = userToUpdate.LockoutEnd;
+                    }
+                }                
 
                 // Update roles list
                 List<RolesListOfSelectedUser> appRoles = userToUpdate.RolesList;
