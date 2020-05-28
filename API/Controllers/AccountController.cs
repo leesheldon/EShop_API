@@ -82,6 +82,8 @@ namespace API.Controllers
         }
 
         [HttpPost("login")]
+        [ProducesResponseType(StatusCodes.Status200OK)]
+        [ProducesResponseType(typeof(ApiResponse), StatusCodes.Status404NotFound)]
         public async Task<ActionResult<UserDto>> Login(LoginDto loginDto)
         {
             var user = await _userManager.FindByEmailAsync(loginDto.Email);
@@ -101,11 +103,13 @@ namespace API.Controllers
         }
 
         [HttpPost("register")]
+        [ProducesResponseType(StatusCodes.Status200OK)]
+        [ProducesResponseType(typeof(ApiResponse), StatusCodes.Status404NotFound)]
         public async Task<ActionResult<UserDto>> Register(RegisterDto registerDto)
         {
             if (CheckEmailExistsAsync(registerDto.Email).Result.Value)
             {
-                return new BadRequestObjectResult(new ApiValidationErrorResponse{Errors = new []{"Email address is in use"}});
+                return BadRequest(new ApiResponse(400, "Email address is in use!"));
             }
 
             var user = new AppUser
@@ -117,11 +121,11 @@ namespace API.Controllers
 
             var result = await _userManager.CreateAsync(user, registerDto.Password);
 
-            if (!result.Succeeded) return BadRequest(new ApiResponse(400));
+            if (!result.Succeeded) return BadRequest(new ApiResponse(400, "Failed to create new User!"));
 
             var roleAddResult = await _userManager.AddToRoleAsync(user, "Member");
             
-            if (!roleAddResult.Succeeded) return BadRequest("Failed to add to role");
+            if (!roleAddResult.Succeeded) return BadRequest("Failed to add to role!");
 
             return new UserDto
             {
@@ -265,6 +269,8 @@ namespace API.Controllers
 
         [HttpPut("{id}/update")]
         [Authorize(Roles = "Admin")]
+        [ProducesResponseType(StatusCodes.Status200OK)]
+        [ProducesResponseType(typeof(ApiResponse), StatusCodes.Status404NotFound)]
         public async Task<ActionResult<UsersWithRolesToReturnDto>> UpdateUser(string id, UserToUpdateDto userToUpdate)
         {
             if (string.IsNullOrEmpty(id))
@@ -279,11 +285,20 @@ namespace API.Controllers
             }
                         
             try
-            {
+            {               
+                if (userFromDb.Email != userToUpdate.Email) 
+                {
+                    if (CheckEmailExistsAsync(userToUpdate.Email).Result.Value)
+                    {
+                        return BadRequest(new ApiResponse(400, "Email address is in use!"));
+                    }
+
+                    userFromDb.Email = userToUpdate.Email;
+                    userFromDb.NormalizedEmail = userToUpdate.Email.ToUpper();
+                }
+                
                 userFromDb.UserName = userToUpdate.UserName;
                 userFromDb.NormalizedUserName = userToUpdate.UserName.ToUpper();
-                userFromDb.Email = userToUpdate.Email;
-                userFromDb.NormalizedEmail = userToUpdate.Email.ToUpper();
 
                 userFromDb.DisplayName = userToUpdate.DisplayName;
                 userFromDb.PhoneNumber = userToUpdate.PhoneNumber;
@@ -291,9 +306,13 @@ namespace API.Controllers
                 bool isLockedOut = await CheckUserIsLockedOut(userFromDb);
                 if (isLockedOut)
                 {
-                    if (userToUpdate.LockoutEnd != null)
+                    if (userToUpdate.LockoutEnd.HasValue)
                     {
                         userFromDb.LockoutEnd = userToUpdate.LockoutEnd;
+                    }
+                    else
+                    {
+                        userFromDb.LockoutEnd = DateTime.Now.AddYears(100);
                     }
                 }                
                 
@@ -324,6 +343,7 @@ namespace API.Controllers
                 if (!result.Succeeded)
                     return BadRequest(new ApiResponse(400, "Failed to add new roles."));
 
+                // Without this row, return will be zero even though record has been updated into Database successfully.
                 _context.Entry(userFromDb).State = EntityState.Modified;
 
                 var completed = await Complete();                
@@ -335,6 +355,34 @@ namespace API.Controllers
             {
                 return BadRequest(new ApiResponse(400, "Problem in Update user! " + ex.Message));
             }
+        }
+
+
+        [HttpDelete("{id}/delete")]
+        [Authorize(Roles = "Admin")]
+        [ProducesResponseType(StatusCodes.Status200OK)]
+        [ProducesResponseType(typeof(ApiResponse), StatusCodes.Status404NotFound)]
+        public async Task<ActionResult<UsersWithRolesToReturnDto>> DeleteUser(string id)
+        {
+            if (string.IsNullOrEmpty(id))
+            {
+                return NotFound(new ApiResponse(404));
+            }
+
+            var userFromDb = await _context.Users.SingleOrDefaultAsync(p => p.Id == id);
+            if (userFromDb == null)
+            {
+                return NotFound(new ApiResponse(404));
+            }
+
+            IdentityResult result = IdentityResult.Success;
+            result = await _userManager.DeleteAsync(userFromDb);
+            if (result != IdentityResult.Success)
+            {
+                return BadRequest(new ApiResponse(400, "Failed to Delete user!"));
+            }
+
+            return Ok();
         }
 
 
@@ -355,15 +403,25 @@ namespace API.Controllers
                 return NotFound(new ApiResponse(404));
             }
 
-            //userFromDb.LockoutEnd = DateTime.Now.AddYears(100);
-            userFromDb.LockoutEnd = appUser.LockoutEnd;
+            // Lockout End
+            if (appUser.LockoutEnd.HasValue)
+            {
+                userFromDb.LockoutEnd = appUser.LockoutEnd;
+            }
+            else
+            {
+                userFromDb.LockoutEnd = DateTime.Now.AddYears(100);
+            }
+
             userFromDb.LockoutEnabled = true;
             userFromDb.LockoutReason = appUser.LockoutReason;
             userFromDb.AccessFailedCount = appUser.AccessFailedCount;
             userFromDb.IsLockedOut = true;
 
+            // Set last UnLock Reason to empty
             userFromDb.UnLockReason = "";
 
+            // Without this row, return will be zero even though record has been updated into Database successfully.
             _context.Entry(userFromDb).State = EntityState.Modified;
 
             var result = await Complete();
@@ -394,8 +452,10 @@ namespace API.Controllers
             userFromDb.AccessFailedCount = appUser.AccessFailedCount;
             userFromDb.IsLockedOut = false;
 
+            // Set last Lock Reason to empty
             userFromDb.LockoutReason = "";
 
+            // Without this row, return will be zero even though record has been updated into Database successfully.
             _context.Entry(userFromDb).State = EntityState.Modified;
 
             var result = await Complete();
